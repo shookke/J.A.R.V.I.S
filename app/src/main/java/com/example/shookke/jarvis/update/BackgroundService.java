@@ -1,26 +1,30 @@
 package com.example.shookke.jarvis.update;
 
 import android.app.Service;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
-import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothProfile;
-import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
 
 import com.example.shookke.jarvis.R;
+import com.example.shookke.jarvis.ble.BleManager;
+import com.example.shookke.jarvis.ble.BleUtils;
 import com.thalmic.myo.AbstractDeviceListener;
 import com.thalmic.myo.DeviceListener;
 import com.thalmic.myo.Hub;
 import com.thalmic.myo.Myo;
 import com.thalmic.myo.Pose;
 
-public class BackgroundService extends Service {
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+
+public class BackgroundService extends Service implements BleManager.BleManagerListener {
     public static final String TAG = "BackgroundService";
 
     // Service Constants
@@ -30,9 +34,9 @@ public class BackgroundService extends Service {
     public static final String UUID_DFU = "00001530-1212-EFDE-1523-785FEABCD123";
     public static final int kTxMaxCharacters = 20;
 
-    protected BluetoothAdapter mBluetoothAdapter;
-    //protected BluetoothManager mBleManager;
 
+    protected BleManager mBleManager;
+    protected BluetoothGattService mUartService;
 
     private Toast mToast;
 
@@ -54,11 +58,81 @@ public class BackgroundService extends Service {
         @Override
         public void onPose(Myo myo, long timestamp, Pose pose) {
             // Show the name of the pose in a toast.
-            showToast(getString(R.string.pose, pose.toString()));
+            //showToast(getString(R.string.pose, pose.toString()));
 
+            if (pose != null) {
+                switch (pose) {
+                    case FIST:
+                        sendPoseEvent(1);
+                        break;
+                    case WAVE_OUT:
+                        sendPoseEvent(2);
+                        break;
+                    case WAVE_IN:
+                        sendPoseEvent(3);
+                        break;
+                    case FINGERS_SPREAD:
+                        sendPoseEvent(4);
+                        break;
+                    case DOUBLE_TAP:
+                        sendPoseEvent(5);
+                        break;
+                    case REST:
+                        sendPoseEvent(6);
+                        break;
+                    case UNKNOWN:
+                        break;
+                }
+            }
+        }
 
+        private void sendPoseEvent(int tag) {
+            String data = "!B" + tag;
+            ByteBuffer buffer = ByteBuffer.allocate(data.length()).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+            buffer.put(data.getBytes());
+            sendDataWithCRC(buffer.array());
         }
     };
+
+    // region Send Data to UART
+    /*
+    protected void sendData(String text) {
+        final byte[] value = text.getBytes(Charset.forName("UTF-8"));
+        sendData(value);
+    }
+    */
+
+    protected void sendData(byte[] data) {
+        if (mUartService != null) {
+            // Split the value into chunks (UART service has a maximum number of characters that can be written )
+            for (int i = 0; i < data.length; i += kTxMaxCharacters) {
+                final byte[] chunk = Arrays.copyOfRange(data, i, Math.min(i + kTxMaxCharacters, data.length));
+                mBleManager.writeService(mUartService, UUID_TX, chunk);
+            }
+        } else {
+            Log.w(TAG, "Uart Service not discovered. Unable to send data");
+        }
+    }
+
+    // Send data to UART and add a byte with a custom CRC
+    protected void sendDataWithCRC(byte[] data) {
+
+        // Calculate checksum
+        byte checksum = 0;
+        for (int i = 0; i < data.length; i++) {
+            checksum += data[i];
+        }
+        checksum = (byte) (~checksum);       // Invert
+
+        // Add crc to data
+        byte dataCrc[] = new byte[data.length + 1];
+        System.arraycopy(data, 0, dataCrc, 0, data.length);
+        dataCrc[data.length] = checksum;
+
+        // Send it
+        Log.d(TAG, "Send to UART: " + BleUtils.bytesToHexWithSpaces(dataCrc));
+        sendData(dataCrc);
+    }
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -87,7 +161,7 @@ public class BackgroundService extends Service {
         hub.attachToAdjacentMyo();
 
 
-
+        /*
         // Initializes Bluetooth adapter.
         final BluetoothManager bluetoothManager =
                 (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
@@ -98,6 +172,54 @@ public class BackgroundService extends Service {
 
         //for ble connection
         bdDevice.connectGatt(getApplicationContext(), true, mGattCallback);
+        */
+
+        mBleManager.connect(getString(R.string.device));
+
+    }
+
+    private void connect(String device) {
+        boolean isConnecting = mBleManager.connect(this, device);
+        System.out.println(isConnecting);
+    }
+
+    @Override
+    public void onConnected() {
+
+    }
+
+    @Override
+    public void onConnecting() {
+
+    }
+
+    @Override
+    public void onDisconnected() {
+        Log.d(TAG, "Disconnected. Back to previous activity");
+        //finish();
+    }
+
+    @Override
+    public void onServicesDiscovered() {
+        mUartService = mBleManager.getGattService(UUID_SERVICE);
+
+        mBleManager.enableNotification(mUartService, UUID_RX, true);
+    }
+
+    @Override
+    public void onDataAvailable(BluetoothGattCharacteristic characteristic) {
+
+    }
+
+    @Override
+    public void onDataAvailable(BluetoothGattDescriptor descriptor) {
+
+
+    }
+
+    @Override
+    public void onReadRemoteRssi(int rssi) {
+
     }
 
     @Override
@@ -119,6 +241,8 @@ public class BackgroundService extends Service {
         mToast.show();
     }
 
+
+
     private BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
@@ -137,6 +261,9 @@ public class BackgroundService extends Service {
             }
         }
     };
+
+
+
 
 
 
