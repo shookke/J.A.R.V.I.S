@@ -1,11 +1,19 @@
-package com.example.shookke.jarvis;
+package com.example.shookke.jarvis.update;
 
 import android.app.Service;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothProfile;
+import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.example.shookke.jarvis.R;
 import com.thalmic.myo.AbstractDeviceListener;
 import com.thalmic.myo.DeviceListener;
 import com.thalmic.myo.Hub;
@@ -13,7 +21,18 @@ import com.thalmic.myo.Myo;
 import com.thalmic.myo.Pose;
 
 public class BackgroundService extends Service {
-    private static final String TAG = "BackgroundService";
+    public static final String TAG = "BackgroundService";
+
+    // Service Constants
+    public static final String UUID_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+    public static final String UUID_RX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+    public static final String UUID_TX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+    public static final String UUID_DFU = "00001530-1212-EFDE-1523-785FEABCD123";
+    public static final int kTxMaxCharacters = 20;
+
+    protected BluetoothAdapter mBluetoothAdapter;
+    //protected BluetoothManager mBleManager;
+
 
     private Toast mToast;
 
@@ -36,6 +55,8 @@ public class BackgroundService extends Service {
         public void onPose(Myo myo, long timestamp, Pose pose) {
             // Show the name of the pose in a toast.
             showToast(getString(R.string.pose, pose.toString()));
+
+
         }
     };
 
@@ -64,6 +85,19 @@ public class BackgroundService extends Service {
 
         // Finally, scan for Myo devices and connect to the first one found that is very near.
         hub.attachToAdjacentMyo();
+
+
+
+        // Initializes Bluetooth adapter.
+        final BluetoothManager bluetoothManager =
+                (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        mBluetoothAdapter = bluetoothManager.getAdapter();
+
+        //Get the device by its serial number
+        BluetoothDevice bdDevice = mBluetoothAdapter.getRemoteDevice(getString(R.string.device));
+
+        //for ble connection
+        bdDevice.connectGatt(getApplicationContext(), true, mGattCallback);
     }
 
     @Override
@@ -84,4 +118,27 @@ public class BackgroundService extends Service {
         }
         mToast.show();
     }
+
+    private BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
+        @Override
+        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+            //Connection established
+            if (status == BluetoothGatt.GATT_SUCCESS
+                    && newState == BluetoothProfile.STATE_CONNECTED) {
+
+                //Discover services
+                gatt.discoverServices();
+
+            } else if (status == BluetoothGatt.GATT_SUCCESS
+                    && newState == BluetoothProfile.STATE_DISCONNECTED) {
+
+                //Handle a disconnect event
+
+            }
+        }
+    };
+
+
+
+
 }

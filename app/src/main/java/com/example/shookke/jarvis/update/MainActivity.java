@@ -1,9 +1,11 @@
-package com.example.shookke.jarvis;
+package com.example.shookke.jarvis.update;
 
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
+
+import com.example.shookke.jarvis.R;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -17,6 +19,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void startListeners(View view){
+
         // Start the BackgroundService to receive and handle Myo events.
         startService(new Intent(this, BackgroundService.class));
 
