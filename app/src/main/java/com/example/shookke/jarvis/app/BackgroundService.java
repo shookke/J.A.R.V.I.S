@@ -1,20 +1,21 @@
-package com.example.shookke.jarvis.update;
+package com.example.shookke.jarvis.app;
 
 import android.app.Service;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
-import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
+import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
+import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
 
 import com.example.shookke.jarvis.R;
-import com.example.shookke.jarvis.ble.BleManager;
-import com.example.shookke.jarvis.ble.BleUtils;
 import com.thalmic.myo.AbstractDeviceListener;
 import com.thalmic.myo.DeviceListener;
 import com.thalmic.myo.Hub;
@@ -22,9 +23,8 @@ import com.thalmic.myo.Myo;
 import com.thalmic.myo.Pose;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
-public class BackgroundService extends Service implements BleManager.BleManagerListener {
+public class BackgroundService extends Service {
     public static final String TAG = "BackgroundService";
 
     // Service Constants
@@ -35,8 +35,14 @@ public class BackgroundService extends Service implements BleManager.BleManagerL
     public static final int kTxMaxCharacters = 20;
 
 
-    protected BleManager mBleManager;
+    protected BluetoothManager mBluetoothManager;
+    BluetoothAdapter mBluetoothAdapter = mBluetoothManager.getAdapter();
     protected BluetoothGattService mUartService;
+    private BluetoothGatt gatt;
+    private BluetoothGattCharacteristic tx;
+    private BluetoothGattCharacteristic rx;
+    private boolean writeInProgress = false;
+
 
     private Toast mToast;
 
@@ -103,15 +109,15 @@ public class BackgroundService extends Service implements BleManager.BleManagerL
     */
 
     protected void sendData(byte[] data) {
-        if (mUartService != null) {
-            // Split the value into chunks (UART service has a maximum number of characters that can be written )
-            for (int i = 0; i < data.length; i += kTxMaxCharacters) {
-                final byte[] chunk = Arrays.copyOfRange(data, i, Math.min(i + kTxMaxCharacters, data.length));
-                mBleManager.writeService(mUartService, UUID_TX, chunk);
-            }
-        } else {
-            Log.w(TAG, "Uart Service not discovered. Unable to send data");
+        if (tx == null || data == null || data.length == 0) {
+            // Do nothing if there is no connection or message to send.
+            return;
         }
+        // Update TX characteristic value.  Note the setValue overload that takes a byte array must be used.
+        tx.setValue(data);
+        writeInProgress = true; // Set the write in progress flag
+        gatt.writeCharacteristic(tx);
+        while (writeInProgress); // Wait for the flag to clear in onCharacteristicWrite
     }
 
     // Send data to UART and add a byte with a custom CRC
@@ -130,7 +136,7 @@ public class BackgroundService extends Service implements BleManager.BleManagerL
         dataCrc[data.length] = checksum;
 
         // Send it
-        Log.d(TAG, "Send to UART: " + BleUtils.bytesToHexWithSpaces(dataCrc));
+        //Log.d(TAG, "Send to UART: " + BleUtils.bytesToHexWithSpaces(dataCrc));
         sendData(dataCrc);
     }
 
@@ -161,7 +167,7 @@ public class BackgroundService extends Service implements BleManager.BleManagerL
         hub.attachToAdjacentMyo();
 
 
-        /*
+
         // Initializes Bluetooth adapter.
         final BluetoothManager bluetoothManager =
                 (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
@@ -172,55 +178,11 @@ public class BackgroundService extends Service implements BleManager.BleManagerL
 
         //for ble connection
         bdDevice.connectGatt(getApplicationContext(), true, mGattCallback);
-        */
 
-        mBleManager.connect(getString(R.string.device));
-
-    }
-
-    private void connect(String device) {
-        boolean isConnecting = mBleManager.connect(this, device);
-        System.out.println(isConnecting);
-    }
-
-    @Override
-    public void onConnected() {
-
-    }
-
-    @Override
-    public void onConnecting() {
-
-    }
-
-    @Override
-    public void onDisconnected() {
-        Log.d(TAG, "Disconnected. Back to previous activity");
-        //finish();
-    }
-
-    @Override
-    public void onServicesDiscovered() {
-        mUartService = mBleManager.getGattService(UUID_SERVICE);
-
-        mBleManager.enableNotification(mUartService, UUID_RX, true);
-    }
-
-    @Override
-    public void onDataAvailable(BluetoothGattCharacteristic characteristic) {
-
-    }
-
-    @Override
-    public void onDataAvailable(BluetoothGattDescriptor descriptor) {
 
 
     }
 
-    @Override
-    public void onReadRemoteRssi(int rssi) {
-
-    }
 
     @Override
     public void onDestroy() {

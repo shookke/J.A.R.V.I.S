@@ -1,4 +1,4 @@
-package com.example.shookke.jarvis.update;
+package com.example.shookke.jarvis.app;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -21,9 +21,9 @@ public class MainActivity extends AppCompatActivity {
     public void startListeners(View view){
 
         // Start the BackgroundService to receive and handle Myo events.
-        startService(new Intent(this, BackgroundService.class));
+        startService(new Intent(this, MultiMyoBackgroundService.class));
 
         // Close this activity since BackgroundService will run in the background.
-        finish();
+        //finish();
     }
 }

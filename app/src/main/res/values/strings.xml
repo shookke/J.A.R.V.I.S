@@ -6,4 +6,7 @@
     <string name="disconnected">Disconnected</string>
     <string name="pose">Pose: %s</string>
     <string name="device">F5:42:D3:21:69:55</string>
+
+    <string name="waiting_message">Looking for adjacent Myo</string>
+
 </resources>
