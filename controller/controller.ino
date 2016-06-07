@@ -14,6 +14,7 @@
 
 #include <string.h>
 #include <Arduino.h>
+#include <Servo.h>
 #include <SPI.h>
 #if not defined (_VARIANT_ARDUINO_DUE_X_) && not defined (_VARIANT_ARDUINO_ZERO_)
   #include <SoftwareSerial.h>
@@ -22,6 +23,8 @@
 #include "Adafruit_BLE.h"
 #include "Adafruit_BluefruitLE_SPI.h"
 #include "Adafruit_BluefruitLE_UART.h"
+
+
 
 #include "BluefruitConfig.h"
 
@@ -59,6 +62,7 @@
     #define FACTORYRESET_ENABLE         1
     #define MINIMUM_FIRMWARE_VERSION    "0.6.6"
     #define MODE_LED_BEHAVIOUR          "MODE"
+    
 /*=========================================================================*/
 
 // Create the bluefruit object, either software serial...uncomment these lines
@@ -95,6 +99,10 @@ void printHex(const uint8_t * data, const uint32_t numBytes);
 // the packet buffer
 extern uint8_t packetbuffer[];
 
+// Servo
+Servo r_forearm;
+
+
 
 /**************************************************************************/
 /*!
@@ -107,6 +115,9 @@ void setup(void)
   while (!Serial);  // required for Flora & Micro
   delay(500);
 
+  r_forearm.attach(9);
+  r_forearm.write(0);
+  
   Serial.begin(115200);
   Serial.println(F("Adafruit Bluefruit App Controller Example"));
   Serial.println(F("-----------------------------------------"));
@@ -164,6 +175,8 @@ void setup(void)
 
   Serial.println(F("******************************"));
 
+  
+
 }
 
 /**************************************************************************/
@@ -178,7 +191,7 @@ void loop(void)
   if (len == 0) return;
 
   /* Got a packet! */
-  // printHex(packetbuffer, len);
+  //printHex(packetbuffer, len);
 
   // Color
   if (packetbuffer[1] == 'C') {
@@ -198,16 +211,21 @@ void loop(void)
   if (packetbuffer[1] == 'B') {
     uint8_t posenum = packetbuffer[2] - '0';
     boolean pressed = packetbuffer[3] - '0';
+    int motorState = 0;
     Serial.print(posenum); Serial.print ("Pose: "); 
     switch(posenum){
+      case 0:
+        Serial.print("no data");
+        break;
       case 1: 
         Serial.print("FIST");
+        r_forearm.write(90);
         break;
       case 2:
         Serial.print("WAVE_OUT");
         break;
       case 3:
-        Serial.print("WAVE_IN");
+        Serial.print("FIRE!");
         break;
       case 4:
         Serial.print("FINGERS_SPREAD");
@@ -217,6 +235,7 @@ void loop(void)
         break;
       case 6:
         Serial.print("REST");
+        r_forearm.write(0);
         break;
     }
   }

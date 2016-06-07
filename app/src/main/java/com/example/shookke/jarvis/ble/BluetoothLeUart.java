@@ -1,5 +1,4 @@
 package com.example.shookke.jarvis.ble;
-
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -112,10 +111,12 @@ public class BluetoothLeUart extends BluetoothGattCallback implements BluetoothA
     public void send(byte[] data) {
         if (tx == null || data == null || data.length == 0) {
             // Do nothing if there is no connection or message to send.
+            System.out.println("send failed tx = " + tx);
             return;
         }
         // Update TX characteristic value.  Note the setValue overload that takes a byte array must be used.
         tx.setValue(data);
+        System.out.println("finale send: " + tx);
         writeInProgress = true; // Set the write in progress flag
         gatt.writeCharacteristic(tx);
         // ToDo: Update to include a timeout in case this goes into the weeds
@@ -205,6 +206,7 @@ public class BluetoothLeUart extends BluetoothGattCallback implements BluetoothA
         super.onServicesDiscovered(gatt, status);
         // Notify connection failure if service discovery failed.
         if (status == BluetoothGatt.GATT_FAILURE) {
+            System.out.println("failed at discovery");
             connectFailure();
             return;
         }
@@ -235,6 +237,7 @@ public class BluetoothLeUart extends BluetoothGattCallback implements BluetoothA
         // First call setCharacteristicNotification to enable notification.
         if (!gatt.setCharacteristicNotification(rx, true)) {
             // Stop if the characteristic notification setup failed.
+            System.out.println("failed at Notification");
             connectFailure();
             return;
         }
@@ -242,15 +245,18 @@ public class BluetoothLeUart extends BluetoothGattCallback implements BluetoothA
         BluetoothGattDescriptor desc = rx.getDescriptor(CLIENT_UUID);
         if (desc == null) {
             // Stop if the RX characteristic has no client descriptor.
+            System.out.println("no client descriptor");
             connectFailure();
             return;
         }
         desc.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-        if (!gatt.writeDescriptor(desc)) {
+        gatt.writeDescriptor(desc);
+        /*if (!gatt.writeDescriptor(desc)) {
             // Stop if the client descriptor could not be written.
+            System.out.println("Descriptor could not be written");
             connectFailure();
             return;
-        }
+        }*/
         // Notify of connection completion.
         notifyOnConnected(this);
     }

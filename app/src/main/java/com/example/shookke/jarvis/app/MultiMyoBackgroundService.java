@@ -1,6 +1,8 @@
 package com.example.shookke.jarvis.app;
 
 import android.app.Service;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGattCharacteristic;
 import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
@@ -19,10 +21,11 @@ import com.thalmic.myo.Pose;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
-public class MultiMyoBackgroundService extends Service {
-    public static final String TAG = "MultiMyoBackground";
+//import com.example.shookke.jarvis.ble.BluetoothLeUart;
 
-    BluetoothLeUart mBluetoothAdapter = new BluetoothLeUart(this);
+public class MultiMyoBackgroundService extends Service implements BluetoothLeUart.Callback{
+    public static final String TAG = "MultiMyoBackground";
+    private BluetoothLeUart uart;
 
 
     private Toast mToast;
@@ -67,7 +70,6 @@ public class MultiMyoBackgroundService extends Service {
         }
         @Override
         public void onPose(Myo myo, long timestamp, Pose pose) {
-            mAdapter.setMessage(myo, "Myo " + identifyMyo(myo) + " switched to pose " + pose.toString() + ".");
 
             if (pose != null) {
                 switch (pose) {
@@ -107,37 +109,9 @@ public class MultiMyoBackgroundService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        intUart();
 
-        mBluetoothAdapter.connectFirstAvailable();
-        if (mBluetoothAdapter.isConnected()){
-            System.out.println("Connected");
-        }else{
-            System.out.println("failed");
-        }
-
-        // First, we initialize the Hub singleton.
-        Hub hub = Hub.getInstance();
-        if (!hub.init(this)) {
-            // We can't do anything with the Myo device if the Hub can't be initialized, so exit.
-            Toast.makeText(this, "Couldn't initialize Hub", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        // Disable standard Myo locking policy. All poses will be delivered.
-        hub.setLockingPolicy(Hub.LockingPolicy.NONE);
-        final int attachingCount = 2;
-        // Set the maximum number of simultaneously attached Myos to 2.
-        hub.setMyoAttachAllowance(attachingCount);
-        Log.i(TAG, "Attaching to " + attachingCount + " Myo armbands.");
-        // attachToAdjacentMyos() attaches to Myo devices that are physically very near to the Bluetooth radio
-        // until it has attached to the provided count.
-        // DeviceListeners attached to the hub will receive onAttach() events once attaching has completed.
-        hub.attachToAdjacentMyos(attachingCount);
-        // Next, register for DeviceListener callbacks.
-        hub.addListener(mListener);
-        // Attach an adapter to the ListView for showing the state of each Myo.
-        mAdapter = new MyoAdapter(this, attachingCount);
-
-
+        intMyo();
 
     }
     @Override
@@ -147,7 +121,11 @@ public class MultiMyoBackgroundService extends Service {
         Hub.getInstance().removeListener(mListener);
         // Shutdown the Hub. This will disconnect any Myo devices that are connected.
         Hub.getInstance().shutdown();
-        mBluetoothAdapter.disconnect();
+        //mBluetoothGatt.disconnect();
+
+        uart.unregisterCallback(this);
+        uart.disconnect();
+
     }
     // This is a utility function implemented for this sample that maps a Myo to a unique ID starting at 1.
     // It does so by looking for the Myo object in mKnownMyos, which onAttach() adds each Myo into as it is attached.
@@ -155,6 +133,38 @@ public class MultiMyoBackgroundService extends Service {
         return mKnownMyos.indexOf(myo) + 1;
     }
 
+
+
+    @Override
+    public void onConnected(BluetoothLeUart uart) {
+        System.out.println("connection successful!");
+
+    }
+
+    @Override
+    public void onConnectFailed(BluetoothLeUart uart) {
+        System.out.println("connection failed");
+    }
+
+    @Override
+    public void onDisconnected(BluetoothLeUart uart) {
+        System.out.println("connection disconnected");
+    }
+
+    @Override
+    public void onReceive(BluetoothLeUart uart, BluetoothGattCharacteristic rx) {
+
+    }
+
+    @Override
+    public void onDeviceFound(BluetoothDevice device) {
+
+    }
+
+    @Override
+    public void onDeviceInfoAvailable() {
+
+    }
 
 
     private class MyoAdapter extends ArrayAdapter<String> {
@@ -185,6 +195,7 @@ public class MultiMyoBackgroundService extends Service {
         mToast.show();
     }
 
+
     // Send data to UART and add a byte with a custom CRC
     protected void sendDataWithCRC(byte[] data) {
 
@@ -199,11 +210,47 @@ public class MultiMyoBackgroundService extends Service {
         byte dataCrc[] = new byte[data.length + 1];
         System.arraycopy(data, 0, dataCrc, 0, data.length);
         dataCrc[data.length] = checksum;
-
+        String str = new String(dataCrc);
+        System.out.println(str);
         // Send it
         //Log.d(TAG, "Send to UART: " + BleUtils.bytesToHexWithSpaces(dataCrc));
-        mBluetoothAdapter.send(dataCrc);
+        uart.send(dataCrc);
     }
+
+    protected void intMyo() {
+        Hub hub = Hub.getInstance();
+        if (!hub.init(this)) {
+            // We can't do anything with the Myo device if the Hub can't be initialized, so exit.
+            Toast.makeText(this, "Couldn't initialize Hub", Toast.LENGTH_SHORT).show();
+        }
+        // Disable standard Myo locking policy. All poses will be delivered.
+        hub.setLockingPolicy(Hub.LockingPolicy.NONE);
+        final int attachingCount = 2;
+        // Set the maximum number of simultaneously attached Myos to 2.
+        hub.setMyoAttachAllowance(attachingCount);
+        Log.i(TAG, "Attaching to " + attachingCount + " Myo armbands.");
+        // attachToAdjacentMyos() attaches to Myo devices that are physically very near to the Bluetooth radio
+        // until it has attached to the provided count.
+        // DeviceListeners attached to the hub will receive onAttach() events once attaching has completed.
+        hub.attachToAdjacentMyos(attachingCount);
+        // Next, register for DeviceListener callbacks.
+        hub.addListener(mListener);
+        // Attach an adapter to the ListView for showing the state of each Myo.
+        mAdapter = new MyoAdapter(this, attachingCount);
+    }
+
+    protected void intUart() {
+        uart = new BluetoothLeUart(this);
+        uart.registerCallback(this);
+        uart.connectFirstAvailable();
+
+        // First, we initialize the Hub singleton.
+
+        if(uart.isConnected()){
+            System.out.println("connection established");
+        }
+    }
+
 
 }
 
