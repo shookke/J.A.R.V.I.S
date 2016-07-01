@@ -75,21 +75,27 @@ public class MultiMyoBackgroundService extends Service implements BluetoothLeUar
                 switch (pose) {
                     case FIST:
                         sendPoseEvent(1);
+                        System.out.println("FIST");
                         break;
                     case WAVE_OUT:
                         sendPoseEvent(2);
+                        System.out.println("WAVE_OUT");
                         break;
                     case WAVE_IN:
                         sendPoseEvent(3);
+                        System.out.println("WAVE_IN");
                         break;
                     case FINGERS_SPREAD:
                         sendPoseEvent(4);
+                        System.out.println("FINGERS_SPREAD");
                         break;
                     case DOUBLE_TAP:
                         sendPoseEvent(5);
+                        System.out.println("DOUBLE_TAP");
                         break;
                     case REST:
                         sendPoseEvent(6);
+                        System.out.println("REST");
                         break;
                     case UNKNOWN:
                         break;
@@ -210,8 +216,6 @@ public class MultiMyoBackgroundService extends Service implements BluetoothLeUar
         byte dataCrc[] = new byte[data.length + 1];
         System.arraycopy(data, 0, dataCrc, 0, data.length);
         dataCrc[data.length] = checksum;
-        String str = new String(dataCrc);
-        System.out.println(str);
         // Send it
         //Log.d(TAG, "Send to UART: " + BleUtils.bytesToHexWithSpaces(dataCrc));
         uart.send(dataCrc);

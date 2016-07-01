@@ -111,12 +111,10 @@ public class BluetoothLeUart extends BluetoothGattCallback implements BluetoothA
     public void send(byte[] data) {
         if (tx == null || data == null || data.length == 0) {
             // Do nothing if there is no connection or message to send.
-            System.out.println("send failed tx = " + tx);
             return;
         }
         // Update TX characteristic value.  Note the setValue overload that takes a byte array must be used.
         tx.setValue(data);
-        System.out.println("finale send: " + tx);
         writeInProgress = true; // Set the write in progress flag
         gatt.writeCharacteristic(tx);
         // ToDo: Update to include a timeout in case this goes into the weeds

@@ -19,8 +19,20 @@
         android:layout_height="wrap_content"
         android:text="@string/start"
         android:id="@+id/scan"
+        android:onClick="startListeners"
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
-        android:onClick="startListeners"/>
+        android:layout_marginBottom="56dp" />
+
+    <Button
+        style="?android:attr/buttonStyleSmall"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/stop"
+        android:id="@+id/button"
+        android:layout_alignParentBottom="true"
+        android:layout_alignEnd="@+id/scan"
+        android:layout_alignStart="@+id/scan"
+        android:onClick="stopListners" />
 
 </RelativeLayout>

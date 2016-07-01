@@ -26,4 +26,11 @@ public class MainActivity extends AppCompatActivity {
         // Close this activity since BackgroundService will run in the background.
         //finish();
     }
+
+    public void stopListners(View view) {
+        stopService(new Intent(this, MultiMyoBackgroundService.class));
+    }
+
+
+
 }

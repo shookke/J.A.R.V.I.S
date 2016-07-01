@@ -1,3 +1,5 @@
+#include <Adafruit_Soundboard.h>
+
 /*********************************************************************
  This is an example for our nRF51822 based Bluefruit LE modules
 
@@ -23,6 +25,7 @@
 #include "Adafruit_BLE.h"
 #include "Adafruit_BluefruitLE_SPI.h"
 #include "Adafruit_BluefruitLE_UART.h"
+
 
 
 
@@ -62,9 +65,29 @@
     #define FACTORYRESET_ENABLE         1
     #define MINIMUM_FIRMWARE_VERSION    "0.6.6"
     #define MODE_LED_BEHAVIOUR          "MODE"
+
+    #define LED         A0 // LED on while "talking"
+    #define AUDIO_ACT   5  // "Act" on Audio FX
+    #define AUDIO_RESET 6  // "Rst" on Audio FX
     
 /*=========================================================================*/
 
+Adafruit_Soundboard      sfx(&Serial1, NULL, AUDIO_RESET);
+
+char filename[12] = "        OGG"; // Tail end of filename NEVER changes
+
+// PROGMEM string arrays are wretched, and sfx.playTrack() expects a
+// goofy fixed-length space-padded filename...we take care of both by
+// declaring all the filenames inside one big contiguous PROGMEM string
+// (notice there are no commas here, it's all concatenated), and copying
+// an 8-byte section as needed into filename[].  Some waste, but we're
+// not hurting for space.  If you change or add any filenames, they MUST
+// be padded with spaces to 8 characters, else there will be...trouble.
+static const char PROGMEM bigStringTable[] =  // play() index
+  "1       " "2       " "3       " "4       " //  0-3
+  "5       " "6       " "7       " "8       " //  4-7
+  "10      " "11      " "12      " "BOOT    "; //  8-
+  
 // Create the bluefruit object, either software serial...uncomment these lines
 /*
 SoftwareSerial bluefruitSS = SoftwareSerial(BLUEFRUIT_SWUART_TXD_PIN, BLUEFRUIT_SWUART_RXD_PIN);
@@ -102,6 +125,18 @@ extern uint8_t packetbuffer[];
 // Servo
 Servo r_forearm;
 
+int ledPanel = 11;
+
+int motorState = 0;
+int repulsorState = 0;
+
+void fail(uint16_t ms) { // If startup error, LED flash indicates status
+  for(uint8_t x=0;;) {
+    digitalWrite(LED, ++x & 1);
+    delay(ms);
+  }
+}
+
 
 
 /**************************************************************************/
@@ -112,13 +147,22 @@ Servo r_forearm;
 /**************************************************************************/
 void setup(void)
 {
+  //Serial1.begin(9600);             // Audio FX serial link
+  
+  
   while (!Serial);  // required for Flora & Micro
   delay(500);
+
+  pinMode(ledPanel, OUTPUT);
+  pinMode(LED, OUTPUT);
+  digitalWrite(LED, HIGH);
 
   r_forearm.attach(9);
   r_forearm.write(0);
   
   Serial.begin(115200);
+  Serial1.begin(9600);
+  if(!sfx.reset())     fail(250); // Audio FX init error?  Slow blink
   Serial.println(F("Adafruit Bluefruit App Controller Example"));
   Serial.println(F("-----------------------------------------"));
 
@@ -174,8 +218,9 @@ void setup(void)
   ble.setMode(BLUEFRUIT_MODE_DATA);
 
   Serial.println(F("******************************"));
-
-  
+  digitalWrite(LED, LOW);
+  analogWrite(ledPanel, 0);
+  play(11);                         // Play startup sound
 
 }
 
@@ -193,26 +238,12 @@ void loop(void)
   /* Got a packet! */
   //printHex(packetbuffer, len);
 
-  // Color
-  if (packetbuffer[1] == 'C') {
-    uint8_t red = packetbuffer[2];
-    uint8_t green = packetbuffer[3];
-    uint8_t blue = packetbuffer[4];
-    Serial.print ("RGB #");
-    if (red < 0x10) Serial.print("0");
-    Serial.print(red, HEX);
-    if (green < 0x10) Serial.print("0");
-    Serial.print(green, HEX);
-    if (blue < 0x10) Serial.print("0");
-    Serial.println(blue, HEX);
-  }
-
   // Pose
-  if (packetbuffer[1] == 'B') {
+  //if (packetbuffer[1] == 'B') {
     uint8_t posenum = packetbuffer[2] - '0';
     boolean pressed = packetbuffer[3] - '0';
-    int motorState = 0;
-    Serial.print(posenum); Serial.print ("Pose: "); 
+    
+    //Serial.print(posenum); Serial.print ("Pose: "); 
     switch(posenum){
       case 0:
         Serial.print("no data");
@@ -220,15 +251,29 @@ void loop(void)
       case 1: 
         Serial.print("FIST");
         r_forearm.write(90);
+        motorState = 1;
+        delay(15);
         break;
       case 2:
         Serial.print("WAVE_OUT");
+        repulsorState = 1;
+        play(0);
+        for (int fadeValue = 0 ; fadeValue <= 75; fadeValue += 5) {
+          analogWrite(ledPanel, fadeValue);
+          delay(30);
+        }
         break;
       case 3:
         Serial.print("FIRE!");
+        if (motorState == 1){
+          play(5);
+        }
         break;
       case 4:
         Serial.print("FINGERS_SPREAD");
+        analogWrite(ledPanel, 255);
+        play(1);
+        analogWrite(ledPanel, 75);
         break;
       case 5:
         Serial.print("DOUBLE_TAP");
@@ -236,71 +281,24 @@ void loop(void)
       case 6:
         Serial.print("REST");
         r_forearm.write(0);
+        if (repulsorState == 1){
+          play(10);
+          for (int fadeValue = 75 ; fadeValue >= 0; fadeValue -= 5) {
+          analogWrite(ledPanel, fadeValue);
+          delay(30);
+        }
+        }
+        repulsorState = 0;
         break;
     }
-  }
-
-  // GPS Location
-  if (packetbuffer[1] == 'L') {
-    float lat, lon, alt;
-    lat = parsefloat(packetbuffer+2);
-    lon = parsefloat(packetbuffer+6);
-    alt = parsefloat(packetbuffer+10);
-    Serial.print("GPS Location\t");
-    Serial.print("Lat: "); Serial.print(lat, 4); // 4 digits of precision!
-    Serial.print('\t');
-    Serial.print("Lon: "); Serial.print(lon, 4); // 4 digits of precision!
-    Serial.print('\t');
-    Serial.print(alt, 4); Serial.println(" meters");
-  }
-
-  // Accelerometer
-  if (packetbuffer[1] == 'A') {
-    float x, y, z;
-    x = parsefloat(packetbuffer+2);
-    y = parsefloat(packetbuffer+6);
-    z = parsefloat(packetbuffer+10);
-    Serial.print("Accel\t");
-    Serial.print(x); Serial.print('\t');
-    Serial.print(y); Serial.print('\t');
-    Serial.print(z); Serial.println();
-  }
-
-  // Magnetometer
-  if (packetbuffer[1] == 'M') {
-    float x, y, z;
-    x = parsefloat(packetbuffer+2);
-    y = parsefloat(packetbuffer+6);
-    z = parsefloat(packetbuffer+10);
-    Serial.print("Mag\t");
-    Serial.print(x); Serial.print('\t');
-    Serial.print(y); Serial.print('\t');
-    Serial.print(z); Serial.println();
-  }
-
-  // Gyroscope
-  if (packetbuffer[1] == 'G') {
-    float x, y, z;
-    x = parsefloat(packetbuffer+2);
-    y = parsefloat(packetbuffer+6);
-    z = parsefloat(packetbuffer+10);
-    Serial.print("Gyro\t");
-    Serial.print(x); Serial.print('\t');
-    Serial.print(y); Serial.print('\t');
-    Serial.print(z); Serial.println();
-  }
-
-  // Quaternions
-  if (packetbuffer[1] == 'Q') {
-    float x, y, z, w;
-    x = parsefloat(packetbuffer+2);
-    y = parsefloat(packetbuffer+6);
-    z = parsefloat(packetbuffer+10);
-    w = parsefloat(packetbuffer+14);
-    Serial.print("Quat\t");
-    Serial.print(x); Serial.print('\t');
-    Serial.print(y); Serial.print('\t');
-    Serial.print(z); Serial.print('\t');
-    Serial.print(w); Serial.println();
-  }
+  //}
 }
+
+void play(uint16_t i) {
+  memcpy_P(filename, &bigStringTable[i * 8], 8); // PROGMEM -> RAM
+  sfx.playTrack(filename);
+  delay(150);
+  while(digitalRead(AUDIO_ACT) == LOW); // Wait for sound to finish
+}
+
+  
