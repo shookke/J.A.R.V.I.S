@@ -150,8 +150,8 @@ void setup(void)
   //Serial1.begin(9600);             // Audio FX serial link
   
   
-  //while (!Serial);  // required for Flora & Micro
-  //delay(500);
+  while (!Serial);  // required for Flora & Micro
+  delay(500);
 
   pinMode(ledPanel, OUTPUT);
   pinMode(LED, OUTPUT);
@@ -160,14 +160,14 @@ void setup(void)
   r_forearm.attach(9);
   r_forearm.write(0);
   
-  //Serial.begin(115200);
+  Serial.begin(115200);
   Serial1.begin(9600);
   if(!sfx.reset())     fail(250); // Audio FX init error?  Slow blink
   //Serial.println(F("Adafruit Bluefruit App Controller Example"));
   //Serial.println(F("-----------------------------------------"));
 
   /* Initialise the module */
-  //Serial.print(F("Initialising the Bluefruit LE module: "));
+  Serial.print(F("Initialising the Bluefruit LE module: "));
 
   if ( !ble.begin(VERBOSE_MODE) )
   {
@@ -243,7 +243,7 @@ void loop(void)
     uint8_t posenum = packetbuffer[2] - '0';
     boolean pressed = packetbuffer[3] - '0';
     
-    //Serial.print(posenum); Serial.print ("Pose: "); 
+    Serial.print(posenum); Serial.print ("Pose: "); 
     switch(posenum){
       case 0:
         //Serial.print("no data");
@@ -276,7 +276,6 @@ void loop(void)
           analogWrite(ledPanel, 255);
           play(1);
           analogWrite(ledPanel, 75);
-          delay(30);
         }
         break;
       case 5:

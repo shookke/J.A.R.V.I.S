@@ -2,13 +2,10 @@
 
 /*********************************************************************
  This is an example for our nRF51822 based Bluefruit LE modules
-
  Pick one up today in the adafruit shop!
-
  Adafruit invests time and resources providing this open source code,
  please support Adafruit and open-source hardware by purchasing
  products from Adafruit!
-
  MIT license, check LICENSE for more information
  All text above, and the splash screen below must be included in
  any redistribution
@@ -33,7 +30,6 @@
 
 /*=========================================================================
     APPLICATION SETTINGS
-
     FACTORYRESET_ENABLE       Perform a factory reset when running this sketch
    
                               Enabling this will put your Bluefruit LE module
@@ -91,7 +87,6 @@ static const char PROGMEM bigStringTable[] =  // play() index
 // Create the bluefruit object, either software serial...uncomment these lines
 /*
 SoftwareSerial bluefruitSS = SoftwareSerial(BLUEFRUIT_SWUART_TXD_PIN, BLUEFRUIT_SWUART_RXD_PIN);
-
 Adafruit_BluefruitLE_UART ble(bluefruitSS, BLUEFRUIT_UART_MODE_PIN,
                       BLUEFRUIT_UART_CTS_PIN, BLUEFRUIT_UART_RTS_PIN);
 */
@@ -150,8 +145,8 @@ void setup(void)
   //Serial1.begin(9600);             // Audio FX serial link
   
   
-  //while (!Serial);  // required for Flora & Micro
-  //delay(500);
+  while (!Serial);  // required for Flora & Micro
+  delay(500);
 
   pinMode(ledPanel, OUTPUT);
   pinMode(LED, OUTPUT);
@@ -160,25 +155,25 @@ void setup(void)
   r_forearm.attach(9);
   r_forearm.write(0);
   
-  //Serial.begin(115200);
+  Serial.begin(115200);
   Serial1.begin(9600);
   if(!sfx.reset())     fail(250); // Audio FX init error?  Slow blink
-  //Serial.println(F("Adafruit Bluefruit App Controller Example"));
-  //Serial.println(F("-----------------------------------------"));
+  Serial.println(F("Adafruit Bluefruit App Controller Example"));
+  Serial.println(F("-----------------------------------------"));
 
   /* Initialise the module */
-  //Serial.print(F("Initialising the Bluefruit LE module: "));
+  Serial.print(F("Initialising the Bluefruit LE module: "));
 
   if ( !ble.begin(VERBOSE_MODE) )
   {
     error(F("Couldn't find Bluefruit, make sure it's in CoMmanD mode & check wiring?"));
   }
-  //Serial.println( F("OK!") );
+  Serial.println( F("OK!") );
 
   if ( FACTORYRESET_ENABLE )
   {
     /* Perform a factory reset to make sure everything is in a known state */
-    //Serial.println(F("Performing a factory reset: "));
+    Serial.println(F("Performing a factory reset: "));
     if ( ! ble.factoryReset() ){
       error(F("Couldn't factory reset"));
     }
@@ -188,13 +183,13 @@ void setup(void)
   /* Disable command echo from Bluefruit */
   ble.echo(false);
 
-  //Serial.println("Requesting Bluefruit info:");
+  Serial.println("Requesting Bluefruit info:");
   /* Print Bluefruit information */
   ble.info();
 
-  //Serial.println(F("Please use Adafruit Bluefruit LE app to connect in Controller mode"));
-  //Serial.println(F("Then activate/use the sensors, color picker, game controller, etc!"));
-  //Serial.println();
+  Serial.println(F("Please use Adafruit Bluefruit LE app to connect in Controller mode"));
+  Serial.println(F("Then activate/use the sensors, color picker, game controller, etc!"));
+  Serial.println();
 
   ble.verbose(false);  // debug info is a little annoying after this point!
 
@@ -203,21 +198,21 @@ void setup(void)
       delay(500);
   }
 
-  //Serial.println(F("******************************"));
+  Serial.println(F("******************************"));
 
   // LED Activity command is only supported from 0.6.6
   if ( ble.isVersionAtLeast(MINIMUM_FIRMWARE_VERSION) )
   {
     // Change Mode LED Activity
-    //Serial.println(F("Change LED activity to " MODE_LED_BEHAVIOUR));
+    Serial.println(F("Change LED activity to " MODE_LED_BEHAVIOUR));
     ble.sendCommandCheckOK("AT+HWModeLED=" MODE_LED_BEHAVIOUR);
   }
 
   // Set Bluefruit to DATA mode
-  //Serial.println( F("Switching to DATA mode!") );
+  Serial.println( F("Switching to DATA mode!") );
   ble.setMode(BLUEFRUIT_MODE_DATA);
 
-  //Serial.println(F("******************************"));
+  Serial.println(F("******************************"));
   digitalWrite(LED, LOW);
   analogWrite(ledPanel, 0);
   play(11);                         // Play startup sound
@@ -236,26 +231,26 @@ void loop(void)
   if (len == 0) return;
 
   /* Got a packet! */
-  printHex(packetbuffer, len);
+  //printHex(packetbuffer, len);
 
   // Pose
   //if (packetbuffer[1] == 'B') {
     uint8_t posenum = packetbuffer[2] - '0';
     boolean pressed = packetbuffer[3] - '0';
     
-    //Serial.print(posenum); Serial.print ("Pose: "); 
+    Serial.print(posenum); Serial.print ("Pose: "); 
     switch(posenum){
       case 0:
-        //Serial.print("no data");
+        Serial.print("no data");
         break;
       case 1: 
-        //Engage Missle
+        Serial.print("FIST");
         r_forearm.write(90);
         motorState = 1;
         delay(15);
         break;
       case 2:
-        //Engage Repulsor
+        Serial.print("WAVE_OUT");
         repulsorState = 1;
         play(0);
         for (int fadeValue = 0 ; fadeValue <= 75; fadeValue += 5) {
@@ -264,36 +259,30 @@ void loop(void)
         }
         break;
       case 3:
-        //Missle Fire
+        Serial.print("FIRE!");
         if (motorState == 1){
           play(5);
-          motorState == 0;
         }
         break;
       case 4:
-        //Repulsor Fire
-        if (repulsorState == 1){
-          analogWrite(ledPanel, 255);
-          play(1);
-          analogWrite(ledPanel, 75);
-          delay(30);
-        }
+        Serial.print("FINGERS_SPREAD");
+        analogWrite(ledPanel, 255);
+        play(1);
+        analogWrite(ledPanel, 75);
         break;
       case 5:
-        //Serial.print("DOUBLE_TAP");
+        Serial.print("DOUBLE_TAP");
         break;
       case 6:
-        //Disarm
+        Serial.print("REST");
         r_forearm.write(0);
         if (repulsorState == 1){
-          play(2);
+          play(10);
           for (int fadeValue = 75 ; fadeValue >= 0; fadeValue -= 5) {
           analogWrite(ledPanel, fadeValue);
           delay(30);
-          }
-          
         }
-        motorState = 0;
+        }
         repulsorState = 0;
         break;
     }
