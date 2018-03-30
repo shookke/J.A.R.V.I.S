@@ -1,4 +1,5 @@
 package com.example.shookke.jarvis.ble;
+
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -6,6 +7,7 @@ import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.content.Context;
+import android.util.Log;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -15,8 +17,9 @@ import java.util.List;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.WeakHashMap;
-import java.lang.String;
 import java.util.concurrent.ConcurrentLinkedQueue;
+
+import static android.content.ContentValues.TAG;
 
 public class BluetoothLeUart extends BluetoothGattCallback implements BluetoothAdapter.LeScanCallback {
 
@@ -116,9 +119,10 @@ public class BluetoothLeUart extends BluetoothGattCallback implements BluetoothA
         // Update TX characteristic value.  Note the setValue overload that takes a byte array must be used.
         tx.setValue(data);
         writeInProgress = true; // Set the write in progress flag
+        long startTime = System.currentTimeMillis();
         gatt.writeCharacteristic(tx);
         // ToDo: Update to include a timeout in case this goes into the weeds
-        while (writeInProgress); // Wait for the flag to clear in onCharacteristicWrite
+        while (writeInProgress || (System.currentTimeMillis()-startTime)<1500); // Wait for the flag to clear in onCharacteristicWrite
     }
 
     // Send data to connected UART device.
@@ -293,7 +297,7 @@ public class BluetoothLeUart extends BluetoothGattCallback implements BluetoothA
         super.onCharacteristicWrite(gatt, characteristic, status);
 
         if (status == BluetoothGatt.GATT_SUCCESS) {
-            // Log.d(TAG,"Characteristic write successful");
+            Log.d(TAG,"Characteristic write successful");
         }
         writeInProgress = false;
     }

@@ -30,6 +30,7 @@ public class MultiMyoBackgroundService extends Service implements BluetoothLeUar
 
     private Toast mToast;
 
+
     public MultiMyoBackgroundService() {
     }
 
@@ -68,22 +69,29 @@ public class MultiMyoBackgroundService extends Service implements BluetoothLeUar
         public void onDisconnect(Myo myo, long timestamp) {
             mAdapter.setMessage(myo, "Myo " + identifyMyo(myo) + " has disconnected.");
         }
+        public Pose prev;
         @Override
         public void onPose(Myo myo, long timestamp, Pose pose) {
 
             if (pose != null) {
                 switch (pose) {
                     case FIST:
-                        sendPoseEvent(1);
-                        System.out.println("FIST");
+                        if (pose != prev) {
+                        sendPoseEvent(1);}
+                        prev = Pose.FIST;
+                        System.out.println(prev);
                         break;
                     case WAVE_OUT:
-                        sendPoseEvent(2);
-                        System.out.println("WAVE_OUT");
+                        if (pose != prev) {
+                            sendPoseEvent(2);}
+                        prev = Pose.WAVE_OUT;
+                        System.out.println(prev);
                         break;
                     case WAVE_IN:
-                        sendPoseEvent(3);
-                        System.out.println("WAVE_IN");
+                        if (pose != prev) {
+                            sendPoseEvent(3);}
+                        prev = Pose.WAVE_IN;
+                        System.out.println(prev);
                         break;
                     case FINGERS_SPREAD:
                         sendPoseEvent(4);
@@ -94,7 +102,9 @@ public class MultiMyoBackgroundService extends Service implements BluetoothLeUar
                         System.out.println("DOUBLE_TAP");
                         break;
                     case REST:
-                        sendPoseEvent(6);
+                        if (pose != prev) {
+                            sendPoseEvent(6);}
+                        prev = Pose.REST;
                         System.out.println("REST");
                         break;
                     case UNKNOWN:
@@ -108,6 +118,7 @@ public class MultiMyoBackgroundService extends Service implements BluetoothLeUar
             String data = "!B" + tag;
             ByteBuffer buffer = ByteBuffer.allocate(data.length()).order(java.nio.ByteOrder.LITTLE_ENDIAN);
             buffer.put(data.getBytes());
+            System.out.println(buffer);
             sendDataWithCRC(buffer.array());
         }
 
@@ -217,8 +228,9 @@ public class MultiMyoBackgroundService extends Service implements BluetoothLeUar
         System.arraycopy(data, 0, dataCrc, 0, data.length);
         dataCrc[data.length] = checksum;
         // Send it
-        //Log.d(TAG, "Send to UART: " + BleUtils.bytesToHexWithSpaces(dataCrc));
+        Log.d(TAG, "Send to UART: ");
         uart.send(dataCrc);
+        Log.d(TAG, "SENT");
     }
 
     protected void intMyo() {
